@@ -1,5 +1,6 @@
 import time
 
+import h5py
 import pandas as pd
 from scipy.interpolate import RegularGridInterpolator
 from sunpy.net.helioviewer import HelioviewerClient
@@ -12,6 +13,8 @@ import requests
 import os
 
 hv = HelioviewerClient()
+
+
 def getMap(t, observatory, instrument, measurement):
     file = hv.download_jp2(t,
                            observatory=observatory,
@@ -23,6 +26,8 @@ def getMap(t, observatory, instrument, measurement):
         print("No map loaded, t={}, {}".format(t, measurement))
         return None
     return themap
+
+
 # testt = datetime.datetime.strptime('2020-01-01T00:00:00', '%Y-%m-%dT%H:%M:%S')
 # observatory = 'SDO'
 # instrument = 'AIA'
@@ -40,11 +45,12 @@ def getMap(t, observatory, instrument, measurement):
 # plt.show()
 # print('testing')
 
-def getEdge(xs,ys,amap,X,Y):
-    points = [[xs[i],ys[i]] for i in range(len(xs))]
-    f = RegularGridInterpolator((X,Y), amap.data.T)
+def getEdge(xs, ys, amap, X, Y):
+    points = [[xs[i], ys[i]] for i in range(len(xs))]
+    f = RegularGridInterpolator((X, Y), amap.data.T)
     aEdge = f(points)
     return aEdge
+
 
 # X = np.arange(4096)+0.5
 # Y = np.arange(4096)+0.5
@@ -92,18 +98,19 @@ def keep_connect(url="https://baidu.com"):
             time.sleep(5)
             continue
 
-def getEdges(X,Y,r,x0,y0,lthetas,rthetas,ts,
-             observatory = 'SDO',
-             instrument = 'AIA',
-             measurement = '193',
+
+def getEdges(X, Y, r, x0, y0, lthetas, rthetas, ts,
+             observatory='SDO',
+             instrument='AIA',
+             measurement='193',
              ):
     lxs = x0 + r * np.cos(lthetas)
     lys = y0 + r * np.sin(lthetas)
     rxs = x0 + r * np.cos(rthetas)
     rys = y0 + r * np.sin(rthetas)
-    ledges = np.zeros([len(lthetas),len(ts)])
-    redges = np.zeros([len(rthetas),len(ts)])
-    for i,t in enumerate(ts):
+    ledges = np.zeros([len(lthetas), len(ts)])
+    redges = np.zeros([len(rthetas), len(ts)])
+    for i, t in enumerate(ts):
         done = False
         while not done:
             try:
@@ -130,7 +137,7 @@ def getEdges(X,Y,r,x0,y0,lthetas,rthetas,ts,
                     os.remove(dirname + '/' + dir_list[-1])
                 continue
 
-    return ledges,redges
+    return ledges, redges
 
 # X = np.arange(4096)+0.5
 # Y = np.arange(4096)+0.5
@@ -152,5 +159,73 @@ def getEdges(X,Y,r,x0,y0,lthetas,rthetas,ts,
 # plt.gca().set_aspect(0.01)
 # plt.title('R={}R0'.format(Lr))
 
+def getEdges3D(X, Y, x0, y0, lthetas, rthetas, ts, rs,
+               observatory='SDO',
+               instrument='AIA',
+               measurement='193',
+               ):
+    layerNum = len(rs)
+    ledges = np.zeros([len(lthetas), len(ts), layerNum])
+    redges = np.zeros([len(rthetas), len(ts), layerNum])
 
+
+    for i, t in enumerate(ts):
+        done = False
+        while not done:
+            try:
+                themap = getMap(t, observatory, instrument, measurement)
+                if themap is None:
+                    done = True
+                    continue
+                for j,r in enumerate(rs):
+                    lxs = x0 + r * np.cos(lthetas)
+                    lys = y0 + r * np.sin(lthetas)
+                    rxs = x0 + r * np.cos(rthetas)
+                    rys = y0 + r * np.sin(rthetas)
+                    ledges[:, i, j] = getEdge(lxs, lys, themap, X, Y)
+                    redges[:, i, j] = getEdge(rxs, rys, themap, X, Y)
+                    done = True
+            except (RuntimeError, IOError):
+                print("RuntimeError/IOError 检查网络连接是否正常")
+                intc = keep_connect()
+                print("网络连接正常 检查Helioviewer网站连接是否正常")
+                url = 'https://helioviewer.org'
+                hvc = keep_connect(url=url)
+                print('连接正常，重新运行程序')
+                dirname = 'C:/Users/pjy/sunpy/data'
+                # 把最近下载的文件删除（因为这个文件很可能是坏的）
+                dir_list = os.listdir(dirname)
+                if dir_list:
+                    dir_list = sorted(dir_list,
+                                      key=lambda x: os.path.getctime(os.path.join(dirname, x)))
+                    os.remove(dirname + '/' + dir_list[-1])
+                continue
+    return ledges, redges
+# X = np.arange(4096)+0.5
+# Y = np.arange(4096)+0.5
+# r0 = 1630
+# x0 = 2048
+# y0 = 2048
+# t1 = datetime.datetime.strptime('2020-01-01T00:00:00', '%Y-%m-%dT%H:%M:%S')
+# t2 = datetime.datetime.strptime('2020-01-28T00:00:00', '%Y-%m-%dT%H:%M:%S')
+# freq = '2h'
+# ts = list(pd.date_range(t1, t2, freq=freq))
+# lthetas = np.linspace(np.pi/2,3*np.pi/2,256)
+# rthetas = np.linspace(-np.pi/2,np.pi/2,256)
+# Lr1 = 1.01
+# Lr2 = 1.2
+# layerNum = 20
+# rs = np.linspace(Lr1,Lr2,layerNum)*r0
+# ledges,redges = getEdges3D(X, Y, x0, y0, lthetas, rthetas, ts, rs)
+# file = h5py.File('data/lredgedata/edgedata4.h5','w')
+# file.create_dataset('ledges',data=np.array(ledges))
+# file.create_dataset('redges',data=np.array(redges))
+# file.create_dataset('lthetas',data=np.array(lthetas))
+# file.create_dataset('rthetas',data=np.array(rthetas))
+# file.create_dataset('rs',data=np.array(rs))
+# #file.create_dataset('ts',data=np.array(ts))
+# file.close()
+# plt.figure()
+# plt.imshow(ledges[:,:,0],origin='lower')
+# plt.gca().set_aspect(1)
 print('testing')
