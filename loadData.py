@@ -1,3 +1,11 @@
+# 获取画图所需的数据
+
+
+# 像素4096*4096
+# 角宽度（helioprojecting）2457*2457
+# 太阳角半径960，对应像素1600.4
+# 但是这个并不是1700图上的边缘（边缘是1630）
+
 import time
 
 import h5py
@@ -16,6 +24,14 @@ hv = HelioviewerClient()
 
 
 def getMap(t, observatory, instrument, measurement):
+    '''
+    从helioviewer获取所需的map，如果找不到合适的map，返回None
+    :param t: 时间，为datetime数据类型
+    :param observatory: 飞船，一般是'SDO'
+    :param instrument: 仪器，‘AIA’或者‘HMI’
+    :param measurement: 通道，例如‘1700’，‘193’
+    :return:所需的map，是sunpy的map数据类型。
+    '''
     file = hv.download_jp2(t,
                            observatory=observatory,
                            instrument=instrument,
@@ -26,17 +42,16 @@ def getMap(t, observatory, instrument, measurement):
         print("No map loaded, t={}, {}".format(t, measurement))
         return None
     return themap
-
-
+# 测试
 # testt = datetime.datetime.strptime('2020-01-01T00:00:00', '%Y-%m-%dT%H:%M:%S')
 # observatory = 'SDO'
 # instrument = 'AIA'
-# measurement = '193'
+# measurement = '1700'
 # themap = getMap(testt,observatory,instrument,measurement)
 # plt.figure()
 # plt.imshow(themap.data,origin='lower')
-# r0 = 1630
-# r = 1.1*r0
+# r0 = 1600.4
+# r = 1.*r0
 # thetas = np.arange(0,1.01,0.01)*np.pi*2
 # xs = r*np.cos(thetas)+2048
 # ys = r*np.sin(thetas)+2048
@@ -51,10 +66,9 @@ def getEdge(xs, ys, amap, X, Y):
     aEdge = f(points)
     return aEdge
 
-
 # X = np.arange(4096)+0.5
 # Y = np.arange(4096)+0.5
-# r0 = 1630
+# r0 = 1600.4
 # x0 = 2048
 # y0 = 2048
 # r = 0.8*r0
@@ -141,10 +155,10 @@ def getEdges(X, Y, r, x0, y0, lthetas, rthetas, ts,
 
 # X = np.arange(4096)+0.5
 # Y = np.arange(4096)+0.5
-# r0 = 1630
+# r0 = 1600.4
 # x0 = 2048
 # y0 = 2048
-# Lr = 1.1
+# Lr = 1.
 # r = Lr*r0
 # t1 = datetime.datetime.strptime('2020-01-01T00:00:00', '%Y-%m-%dT%H:%M:%S')
 # t2 = datetime.datetime.strptime('2020-01-28T00:00:00', '%Y-%m-%dT%H:%M:%S')
@@ -201,31 +215,33 @@ def getEdges3D(X, Y, x0, y0, lthetas, rthetas, ts, rs,
                     os.remove(dirname + '/' + dir_list[-1])
                 continue
     return ledges, redges
-# X = np.arange(4096)+0.5
-# Y = np.arange(4096)+0.5
-# r0 = 1630
-# x0 = 2048
-# y0 = 2048
-# t1 = datetime.datetime.strptime('2020-01-01T00:00:00', '%Y-%m-%dT%H:%M:%S')
-# t2 = datetime.datetime.strptime('2020-01-28T00:00:00', '%Y-%m-%dT%H:%M:%S')
-# freq = '2h'
-# ts = list(pd.date_range(t1, t2, freq=freq))
-# lthetas = np.linspace(np.pi/2,3*np.pi/2,256)
-# rthetas = np.linspace(-np.pi/2,np.pi/2,256)
-# Lr1 = 1.01
-# Lr2 = 1.2
-# layerNum = 20
-# rs = np.linspace(Lr1,Lr2,layerNum)*r0
-# ledges,redges = getEdges3D(X, Y, x0, y0, lthetas, rthetas, ts, rs)
-# file = h5py.File('data/lredgedata/edgedata4.h5','w')
-# file.create_dataset('ledges',data=np.array(ledges))
-# file.create_dataset('redges',data=np.array(redges))
-# file.create_dataset('lthetas',data=np.array(lthetas))
-# file.create_dataset('rthetas',data=np.array(rthetas))
-# file.create_dataset('rs',data=np.array(rs))
-# #file.create_dataset('ts',data=np.array(ts))
-# file.close()
-# plt.figure()
-# plt.imshow(ledges[:,:,0],origin='lower')
-# plt.gca().set_aspect(1)
-print('testing')
+if __name__=='__main__':
+    X = np.arange(4096) + 0.5
+    Y = np.arange(4096) + 0.5
+    r0 = 1600.4
+    x0 = 2048
+    y0 = 2048
+    t1 = datetime.datetime.strptime('2020-01-01T00:00:00', '%Y-%m-%dT%H:%M:%S')
+    t2 = datetime.datetime.strptime('2020-01-28T00:00:00', '%Y-%m-%dT%H:%M:%S')
+    freq = '30min'
+    ts = list(pd.date_range(t1, t2, freq=freq))
+    lthetas = np.linspace(np.pi / 2, 3 * np.pi / 2, 4096)
+    rthetas = np.linspace(-np.pi / 2, np.pi / 2, 4096)
+    Lr1 = 1.0
+    Lr2 = 1.2
+    layerNum = 21
+    rs = np.linspace(Lr1, Lr2, layerNum) * r0
+    ledges, redges = getEdges3D(X, Y, x0, y0, lthetas, rthetas, ts, rs)
+    file = h5py.File('data/lredgedata/edgedata6.h5', 'w')
+    file.create_dataset('ledges', data=np.array(ledges))
+    file.create_dataset('redges', data=np.array(redges))
+    file.create_dataset('lthetas', data=np.array(lthetas))
+    file.create_dataset('rthetas', data=np.array(rthetas))
+    file.create_dataset('rs', data=np.array(rs))
+    # file.create_dataset('ts',data=np.array(ts))
+    file.close()
+    plt.figure()
+    plt.imshow(ledges[:, :, 0], origin='lower')
+    plt.gca().set_aspect(1)
+    print('testing')
+
