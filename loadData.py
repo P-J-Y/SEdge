@@ -1,5 +1,5 @@
 # 获取画图所需的数据
-
+# 更改#210行以在本机上运行程序
 
 # 像素4096*4096
 # 角宽度（helioprojecting）2457*2457
@@ -61,6 +61,15 @@ def getMap(t, observatory, instrument, measurement):
 # print('testing')
 
 def getEdge(xs, ys, amap, X, Y):
+    '''
+    获得一条轨迹（由xs、ys确定）上的map灰度值
+    :param xs:list或者np.array数据类型，单位是像素
+    :param ys:单位是像素
+    :param amap:sunpy的map数据类型
+    :param X:和amap.data大小一致的矩阵（meshgrid得到的X坐标），单位是像素
+    :param Y:单位是像素
+    :return:轨迹上的map灰度值
+    '''
     points = [[xs[i], ys[i]] for i in range(len(xs))]
     f = RegularGridInterpolator((X, Y), amap.data.T)
     aEdge = f(points)
@@ -95,6 +104,10 @@ def getEdge(xs, ys, amap, X, Y):
 # plt.show()
 
 def keep_connect(url="https://baidu.com"):
+    '''
+    此程序可以避免下载数据时出现网络连接问题，导致程序崩溃。遇到网络问题，程序可以不断尝试连接。
+    :param url:所需要连接的网站。默认是百度。
+    '''
     connected = False
     while not connected:
         try:
@@ -117,7 +130,25 @@ def getEdges(X, Y, r, x0, y0, lthetas, rthetas, ts,
              observatory='SDO',
              instrument='AIA',
              measurement='193',
+             dirname='C:/Users/pjy/sunpy/data',
              ):
+    '''
+    这个函数只能获取一圈边缘，如果想获取边缘的3D图像，请使用函数getEdges3D
+    :param X: meshgrid得到和sunpy的map对应的X坐标
+    :param Y:
+    :param r: 所需边缘的半径，单位是像素
+    :param x0: 太阳中心坐标，单位是像素
+    :param y0: 太阳中心坐标，单位是像素
+    :param lthetas: 弧度制，左边缘的角度，例如 np.linspace(np.pi/2,3*np.pi/2,4096)
+    :param rthetas: 弧度制，右边缘的角度，例如 np.linspace(-np.pi/2,np.pi/2,4096)
+    :param ts: datetime数据类型，需要采集边缘的时间
+    :param observatory: ‘SDO’
+    :param instrument:‘AIA'或者’HMI‘
+    :param measurement: ’1700‘’193‘等
+    :return: 左边缘，右边缘
+    :dirname: sunpy存放下载文件的地址，每台主机是不同的
+    '''
+    # 左边缘和右边缘的坐标，单位是像素
     lxs = x0 + r * np.cos(lthetas)
     lys = y0 + r * np.sin(lthetas)
     rxs = x0 + r * np.cos(rthetas)
@@ -137,12 +168,11 @@ def getEdges(X, Y, r, x0, y0, lthetas, rthetas, ts,
                 done = True
             except (RuntimeError, IOError):
                 print("RuntimeError/IOError 检查网络连接是否正常")
-                intc = keep_connect()
+                intc = keep_connect() #网络连接
                 print("网络连接正常 检查Helioviewer网站连接是否正常")
                 url = 'https://helioviewer.org'
-                hvc = keep_connect(url=url)
+                hvc = keep_connect(url=url) #helioviewer网站连接
                 print('连接正常，重新运行程序')
-                dirname = 'C:/Users/pjy/sunpy/data'
                 # 把最近下载的文件删除（因为这个文件很可能是坏的）
                 dir_list = os.listdir(dirname)
                 if dir_list:
@@ -177,7 +207,24 @@ def getEdges3D(X, Y, x0, y0, lthetas, rthetas, ts, rs,
                observatory='SDO',
                instrument='AIA',
                measurement='193',
+               dirname='C:/Users/pjy/sunpy/data',
                ):
+    '''
+
+    :param X: meshgrid得到和sunpy的map对应的X坐标
+    :param Y:
+    :param x0: 太阳中心坐标，单位是像素
+    :param y0:
+    :param lthetas: 弧度制，左边缘的角度，例如 np.linspace(np.pi/2,3*np.pi/2,4096)
+    :param rthetas: 弧度制，右边缘的角度，例如 np.linspace(-np.pi/2,np.pi/2,4096)
+    :param ts: datetime数据类型，需要采集边缘的时间
+    :param rs: 所需边缘的半径构成的list，单位是像素
+    :param observatory: 见sunpy的说明
+    :param instrument:
+    :param measurement:
+    :param dirname: sunpy存放下载文件的地址，每台主机是不同的
+    :return: 左边缘和右边缘，维度：θ角向*时间*径向
+    '''
     layerNum = len(rs)
     ledges = np.zeros([len(lthetas), len(ts), layerNum])
     redges = np.zeros([len(rthetas), len(ts), layerNum])
@@ -206,7 +253,6 @@ def getEdges3D(X, Y, x0, y0, lthetas, rthetas, ts, rs,
                 url = 'https://helioviewer.org'
                 hvc = keep_connect(url=url)
                 print('连接正常，重新运行程序')
-                dirname = 'C:/Users/pjy/sunpy/data'
                 # 把最近下载的文件删除（因为这个文件很可能是坏的）
                 dir_list = os.listdir(dirname)
                 if dir_list:
@@ -215,6 +261,7 @@ def getEdges3D(X, Y, x0, y0, lthetas, rthetas, ts, rs,
                     os.remove(dirname + '/' + dir_list[-1])
                 continue
     return ledges, redges
+
 if __name__=='__main__':
     X = np.arange(4096) + 0.5
     Y = np.arange(4096) + 0.5
